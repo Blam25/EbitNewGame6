@@ -4,6 +4,8 @@ import (
 	//E "EbitNew6"
 	"log"
 
+	"sync"
+
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"golang.org/x/exp/maps"
@@ -20,27 +22,34 @@ func (s Remove) getid() int {
 }
 
 type Position struct {
-	Entity *Entity
-	X      int
-	Y      int
-}
-
-func (s Position) getid() int {
-	return s.Entity.id
+	*Entity
+	X int
+	Y int
 }
 
 type Image struct {
-	Entity *Entity
-	image  *ebiten.Image
-	op     ebiten.DrawImageOptions
+	*Entity
+	image *ebiten.Image
+	op    ebiten.DrawImageOptions
 }
 
 func (s Image) getid() int {
 	return s.Entity.id
 }
 
+func NewEntity() *Entity {
+	new := &Entity{}
+	new.id = identifier
+	identifier++
+	return new
+}
+
 type Entity struct {
 	id int
+}
+
+func (s *Entity) getid() int {
+	return s.id
 }
 
 func NewComp[T validComp]() *Component[T] {
@@ -52,6 +61,7 @@ func NewComp[T validComp]() *Component[T] {
 type Component[T validComp] struct {
 	theMap   map[int]*T
 	theArray []*T
+	mu       sync.Mutex
 }
 
 type validComp interface {
@@ -63,13 +73,25 @@ func (s *Component[T]) Add(object *T) {
 	s.theArray = append(s.theArray, object)
 }
 
-func (s *Component[T]) Iterate(f func(entity int, object *T)) {
+func (s *Component[T]) IterateRead(f func(entity int, object T)) {
 	//for i, s := range s.theMap {
 	//	f(i, s)
 	//}
 	for i, s := range s.theArray {
+		z := *s
+		f(i, z)
+	}
+}
+
+func (s *Component[T]) IterateWrite(f func(entity int, object *T)) {
+
+	s.mu.Lock()
+	println("locked")
+	for i, s := range s.theArray {
 		f(i, s)
 	}
+	s.mu.Unlock()
+	println("Unlocked")
 }
 
 func (s *Component[T]) Get(id int) *T {
@@ -84,13 +106,6 @@ func (s *Component[T]) Remove(id int) {
 
 func (s *Component[T]) GetEntities() []int {
 	return maps.Keys(s.theMap)
-}
-
-func NewEntity() *Entity {
-	new := &Entity{}
-	new.id = identifier
-	identifier++
-	return new
 }
 
 var PosMap map[int]*Position
