@@ -14,7 +14,7 @@ import (
 var identifier int
 
 type Remove struct {
-	Entity *Entity
+	*Entity
 }
 
 func (s Remove) getid() int {
@@ -48,83 +48,115 @@ type Entity struct {
 	id int
 }
 
-func (s *Entity) getid() int {
+func (s *Entity) Getid() int {
 	return s.id
 }
 
 func NewComp[T validComp]() *Component[T] {
-	new := &Component[T]{theMap: make(map[int]*T)}
+	new := &Component[T]{index: make(map[int]int)}
 	return new
 
 }
 
 type Component[T validComp] struct {
-	theMap   map[int]*T
-	theArray []*T
+	index    map[int]int
+	theArray []T
 	mu       sync.Mutex
 }
 
 type validComp interface {
-	getid() int
+	Getid() int
 }
 
-func (s *Component[T]) Add(object *T) {
-	s.theMap[(*object).getid()] = object
+func (s *Component[T]) Add(object T) {
+
+	s.index[object.Getid()] = len(s.theArray)
 	s.theArray = append(s.theArray, object)
+
 }
 
-func (s *Component[T]) IterateRead(f func(entity int, object T)) {
+func (s *Component[T]) GetArrRead() []T {
 	//for i, s := range s.theMap {
 	//	f(i, s)
 	//}
-	for i, s := range s.theArray {
+	/*for i, s := range s.theArray {
 		z := *s
 		f(i, z)
-	}
+	}*/
+	return s.theArray
 }
 
-func (s *Component[T]) IterateWrite(f func(entity int, object *T)) {
+func (s *Component[T]) IterateWrite(f func(entity int, object T)) {
 
 	s.mu.Lock()
-	println("locked")
+	//println("locked")
 	for i, s := range s.theArray {
 		f(i, s)
 	}
 	s.mu.Unlock()
-	println("Unlocked")
+	//println("Unlocked")
 }
 
-func (s *Component[T]) Get(id int) *T {
+func (s *Component[T]) GetWrite(i int, f func(object T)) {
+
+	s.mu.Lock()
+
+	f(s.theArray[s.index[i]])
+
+	s.mu.Unlock()
+}
+
+func (s *Component[T]) GetRead(id int) T {
 	//return s.theMap[id]
-	return s.theArray[id]
+	//z := s.theArray[id]
+	return s.theArray[s.index[id]]
 }
 
 func (s *Component[T]) Remove(id int) {
 
-	//delete(s.theMap, id)
+	//get index of object to be removed
+	index := s.index[id]
+
+	//get object to be removed
+	object := s.theArray[index]
+
+	//delete id and index of said object from map
+	delete(s.index, object.Getid())
+
+	//set value of deleted index to the last object in array, deleting it
+	s.theArray[index] = s.theArray[len(s.theArray)-1]
+
+	//get id of moved index
+	movedId := s.theArray[index].Getid()
+
+	//set new index of moved object correctly in map
+	s.index[movedId] = index
+
+	//delete the last (now duplicated) object from the array
+	s.theArray = s.theArray[:len(s.theArray)-1]
 }
 
 func (s *Component[T]) GetEntities() []int {
-	return maps.Keys(s.theMap)
+	return maps.Keys(s.index)
 }
 
 var PosMap map[int]*Position
 var PosArr []*Position
-var Positions *Component[Position]
-var Images *Component[Image]
+var Positions *Component[*Position]
+var Images *Component[*Image]
 
 type Components struct {
-	Position *Component[Position]
-	Image    *Component[Image]
+	Position *Component[*Position]
+	Image    *Component[*Image]
 }
 
 var Comps *Components = &Components{}
-var Removed *Component[Remove]
+var Removed *Component[*Remove]
 
 func init() {
-	Removed = NewComp[Remove]()
-	Comps.Position = NewComp[Position]()
-	Comps.Image = NewComp[Image]()
+	Removed = NewComp[*Remove]()
+	Comps.Position = NewComp[*Position]()
+	Comps.Image = NewComp[*Image]()
 
 	var err error
 	image1, _, err := ebitenutil.NewImageFromFile("gopher.png")

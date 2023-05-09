@@ -68,7 +68,7 @@ func TestSys(wg *sync.WaitGroup) {
 	}
 
 	Comps.Position.IterateWrite(func(i int, s *Position) {
-		if Comps.Image.Get(i) != nil {
+		if Comps.Image.GetRead(i) != nil {
 
 		}
 	})
@@ -77,11 +77,20 @@ func TestSys(wg *sync.WaitGroup) {
 func TestSys2(screen *ebiten.Image, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	Comps.Position.IterateRead(func(i int, s Position) {
-		if a := Comps.Image.Get(i); a != nil {
+	for i, s := range Comps.Position.GetArrRead() {
+		if a := Comps.Image.GetRead(i); a != nil {
 			a.op.GeoM.Reset()
 			a.op.GeoM.Translate(float64(s.X), float64(s.Y))
 			screen.DrawImage(a.image, &a.op)
 		}
-	})
+	}
+	/*
+		Comps.Position.GetArrRead(func(i int, s Position) {
+			if a := Comps.Image.GetRead(i); a != nil {
+				a.op.GeoM.Reset()
+				a.op.GeoM.Translate(float64(s.X), float64(s.Y))
+				screen.DrawImage(a.image, &a.op)
+			}
+		})
+	*/
 }
