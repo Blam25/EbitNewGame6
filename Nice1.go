@@ -46,6 +46,7 @@ func NewEntity() *Entity {
 
 type Entity struct {
 	id int
+	mu sync.Mutex
 }
 
 func (s *Entity) getid() int {
@@ -88,6 +89,7 @@ func (s *Component[T]) IterateWrite(f func(entity int, object *T)) {
 	s.mu.Lock()
 	println("locked")
 	for i, s := range s.theArray {
+
 		f(i, s)
 	}
 	s.mu.Unlock()
